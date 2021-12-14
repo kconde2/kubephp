@@ -1,7 +1,7 @@
 # ---------------------------------------------- Build Time Arguments --------------------------------------------------
-ARG PHP_VERSION="7.4"
-ARG NGINX_VERSION="1.17.4"
-ARG COMPOSER_VERSION="2.0"
+ARG PHP_VERSION="8.0.12"
+ARG NGINX_VERSION="1.20.2"
+ARG COMPOSER_VERSION="2.1.14"
 ARG XDEBUG_VERSION="3.0.3"
 ARG COMPOSER_AUTH
 # -------------------------------------------------- Composer Image ----------------------------------------------------
@@ -24,47 +24,47 @@ LABEL maintainer="sherifabdlnaby@gmail.com"
 # ------------------------------------- Install Packages Needed Inside Base Image --------------------------------------
 
 RUN IMAGE_DEPS="tini gettext"; \
-    RUNTIME_DEPS="fcgi"; \
-    apk add --no-cache ${IMAGE_DEPS} ${RUNTIME_DEPS}
+     RUNTIME_DEPS="fcgi"; \
+     apk add --no-cache ${IMAGE_DEPS} ${RUNTIME_DEPS}
 
 # ---------------------------------------- Install / Enable PHP Extensions ---------------------------------------------
 
 
 RUN apk add --no-cache --virtual .build-deps \
-      $PHPIZE_DEPS  \
-      libzip-dev    \
-      icu-dev       \
- # PHP Extensions --------------------------------- \
- && docker-php-ext-install -j$(nproc) \
-      intl        \
-      opcache     \
-      pdo_mysql   \
-      zip         \
- # Pecl Extensions -------------------------------- \
- && pecl install apcu-5.1.20 && docker-php-ext-enable apcu \
- # ---------------------------------------------------------------------
- # Install Xdebug at this step to make editing dev image cache-friendly, we delete xdebug from production image later
- && pecl install xdebug-${XDEBUG_VERSION} \
- # Cleanup ---------------------------------------- \
- # - Detect Runtime Dependencies of the installed extensions. \
- # - src: https://github.com/docker-library/wordpress/blob/master/latest/php7.4/fpm-alpine/Dockerfile \
- && runDeps="$( \
-		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
-			| tr ',' '\n' \
-			| sort -u \
-			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
-	)"; \
-  # Save Runtime Deps in a virtual deps
-	apk add --no-network --virtual .php-extensions-rundeps $runDeps; \
-  # Uninstall Everything we Installed (minus the runtime Deps)
-	apk del --no-network .build-deps
+     $PHPIZE_DEPS  \
+     libzip-dev    \
+     icu-dev       \
+     # PHP Extensions --------------------------------- \
+     && docker-php-ext-install -j$(nproc) \
+     intl        \
+     opcache     \
+     pdo_mysql   \
+     zip         \
+     # Pecl Extensions -------------------------------- \
+     && pecl install apcu-5.1.20 && docker-php-ext-enable apcu \
+     # ---------------------------------------------------------------------
+     # Install Xdebug at this step to make editing dev image cache-friendly, we delete xdebug from production image later
+     && pecl install xdebug-${XDEBUG_VERSION} \
+     # Cleanup ---------------------------------------- \
+     # - Detect Runtime Dependencies of the installed extensions. \
+     # - src: https://github.com/docker-library/wordpress/blob/master/latest/php7.4/fpm-alpine/Dockerfile \
+     && runDeps="$( \
+     scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
+     | tr ',' '\n' \
+     | sort -u \
+     | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+     )"; \
+     # Save Runtime Deps in a virtual deps
+     apk add --no-network --virtual .php-extensions-rundeps $runDeps; \
+     # Uninstall Everything we Installed (minus the runtime Deps)
+     apk del --no-network .build-deps
 
 # ------------------------------------------------- Permissions --------------------------------------------------------
 
 # - Clean bundled config/users & recreate them with UID 1000 for docker compatability in dev container.
 # - Create composer directories (since we run as non-root later)
 RUN deluser --remove-home www-data && adduser -u1000 -D www-data && rm -rf /var/www /usr/local/etc/php-fpm.d/* && \
-    mkdir -p /var/www/.composer /app && chown -R www-data:www-data /app /var/www/.composer
+     mkdir -p /var/www/.composer /app && chown -R www-data:www-data /app /var/www/.composer
 
 # ------------------------------------------------ PHP Configuration ---------------------------------------------------
 
@@ -162,7 +162,7 @@ USER www-data
 COPY --chown=www-data:www-data --from=vendor /app/vendor /app/vendor
 
 # Copy App Code
-COPY --chown=www-data:www-data . .
+COPY --chown=www-data:www-data ./app .
 
 # Run Composer Install again
 # ( this time to run post-install scripts, autoloader, and post-autoload scripts using one command )
@@ -186,9 +186,9 @@ ENV APP_DEBUG 1
 USER root
 
 # For Composer Installs
-RUN apk add git openssh;
- # Enable Xdebug
- docker-php-ext-enable xdebug; \
+RUN apk add git openssh && \
+     # Enable Xdebug
+     docker-php-ext-enable xdebug
 
 # For Xdebuger to work, it needs the docker host ID
 # - in Mac AND Windows, `host.docker.internal` resolve to Docker host IP

@@ -42,7 +42,7 @@
 - **Runs as non-root** in both application containers.
 - Configured for graceful shutdowns/restarts, **zero downtime deployments, auto-healing, and auto-scaling**.
 - Easily extend the image with extra configuration, and scripts; such as post-build & pre-run scripts.
-- Minimal startup time, container almost start serving requests almost instantly. 
+- Minimal startup time, container almost start serving requests almost instantly.
 - Image tries to fail at build time as much as possible by running all sort of checks.
 - Ability to run Commands, Consumers and Crons using same image. (No supervisor or crontab)
 - Development Image **supports mounting code and hot-reloading and XDebug**.
@@ -53,7 +53,7 @@
 
 ## How to configure image to run my project ?
 
-You'll need to iterate over your application's dependency system packages, and required PHP Extensions; and add them to their respective locations in the image. 
+You'll need to iterate over your application's dependency system packages, and required PHP Extensions; and add them to their respective locations in the image.
 
 1. Add System Dependencies and PHP Extensions your application depends on to the Image.
 2. Port in any configuration changes you made for PHP.ini to the image, otherwise use the sane defaults.
@@ -70,13 +70,13 @@ Your application will be split into two components.
 1. **The Webserver** -> Server Static Content and proxy dynamic requests to PHP-FPM over TCP, webserver also applies rate limiting, security headers... and whatever it is configured for.
 2. **The PHP Process** -> PHP FPM process that will run you PHP Code.
 
-> Other type of deployments such as a cron-job, or a supervised consumer can be achieved by overriding the default image CMD. 
+> Other type of deployments such as a cron-job, or a supervised consumer can be achieved by overriding the default image CMD.
 
 -----
 
-# Requirements 
+# Requirements
 
-- [Docker 20.05 or higher](https://docs.docker.com/install/) 
+- [Docker 20.05 or higher](https://docs.docker.com/install/)
 - [Docker-Compose 1.27 or higher](https://docs.docker.com/compose/install/) (optional)
 - PHP >= 7 Application
 
@@ -89,7 +89,7 @@ Your application will be split into two components.
 
 OR
 
-<a href="https://github.com/sherifabdlnaby/kubephp/generate"> 
+<a href="https://github.com/sherifabdlnaby/kubephp/generate">
 <img src="https://user-images.githubusercontent.com/16992394/133710871-178f9cb6-922e-41e1-9c69-dff8f9773b97.png" alt="create repository from template"></a>
 
 #### 2. Start
@@ -100,28 +100,28 @@ OR
     1. For Dev: `make up` is just an alias for `docker-compose up -d`
     1. For Dev: Make sure to delete previous `vendor` directory if you had it before.
     2. Docker-Compose will start App container first, and only start Web server when it's ready, on initial install, it might take some time.
-4. Go to [http://localhost](http://localhost:8080) 
+4. Go to [http://localhost](http://localhost:8080)
 
 > Makefile is just a wrapper over docker-compose commands.
-      
-## Building, Configuring and Extending Image 
+
+## Building, Configuring and Extending Image
 
 ### Image Targets and Build Arguments
 - The image comes with a handy _Makefile_ to build the image using Docker-Compose files, it's handy when manually building the image for development or in a not-orchestrated docker host.
 However, in an environment where CI/CD pipelines will build the image, they will need to supply some build-time arguments for the image. (tho defaults exist.)
-    
+
     #### Build Time Arguments
     | **ARG**            | **Description**                                                                                                                                      | **Default** |
     |--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|
     | `PHP_VERSION`      | PHP Version used in the Image                                                                                                                        | `7.4`     |
     | `NGINX_VERSION`    | Nginx Version                                                                                                                                        | `1.17.4`    |
     | `COMPOSER_VERSION` | Composer Version used in Image                                                                                                                       | `2.0`     |
-    | `COMPOSER_AUTH`    | A Json Object with Bitbucket or Github token to clone private Repos with composer.</br>[Reference](https://getcomposer.org/doc/03-cli.md#composer-auth) | `{}`        | 
-    | `RUNTIME_DEPS`     | List of all OS Packages needed for PHP Runtime | `zip`        | 
-    | `XDEBUG_VERSION`     | Xdebug Version to use in Development Image | `3.0.3`        | 
+    | `COMPOSER_AUTH`    | A Json Object with Bitbucket or Github token to clone private Repos with composer.</br>[Reference](https://getcomposer.org/doc/03-cli.md#composer-auth) | `{}`        |
+    | `RUNTIME_DEPS`     | List of all OS Packages needed for PHP Runtime | `zip`        |
+    | `XDEBUG_VERSION`     | Xdebug Version to use in Development Image | `3.0.3`        |
 
     #### Image Targets
-    
+
     | **Target** | Env         | Desc                                                                                                                                                                                                                                                                             | Size   | Based On                      |
     |------------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|-------------------------------|
     | app        | Production  | The PHP Application with immutable code/dependencies. By default starts `PHP-FPM` process listening on `9000`.  Command can be extended to run any PHP Consumer/Job, entrypoint will still start the pre-run setup and then run the supplied command.                            | ~135mb | PHP Official Image (Alpine)   |
@@ -145,13 +145,48 @@ However, in an environment where CI/CD pipelines will build the image, they will
     RUN pecl install apcu-5.1.20 && docker-php-ext-enable apcu
     #   EX: RUN pecl install memcached && docker-php-ext-enable memcached
     ```
+
 ##### Note
 > At build time, Image will run `composer check-platform-reqs` to check that PHP and extensions versions match the platform requirements of the installed packages.
 
+##### Examples of apps' installation
+Symfony
+```shell
+docker run --rm --interactive --tty \
+  --volume $PWD/app:/app \
+  --user $(id -u):$(id -g) \
+  composer create-project symfony/skeleton .
+```
+
+##### VsCode Xdebug Config
+```json
+{
+    "configurations": [
+        {
+            "name": "Listen for XDebug on Docker App",
+            "type": "php",
+            "request": "launch",
+            "port": 9000,
+            "pathMappings": {
+                "/app": "${workspaceFolder}/app"
+            },
+            "xdebugSettings": {
+                "max_data": 65535,
+                "show_hidden": 1,
+                "max_children": 100,
+                "max_depth": 5
+            },
+            "ignore": [
+                "**/vendor/**/*.php"
+            ]
+        }
+    ]
+}
+```
 ### PHP Configuration
-1. PHP `base` Configuration that are common in all environments in `docker/php/base-php.ini`[🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/php/base-php.ini) 
-1. PHP `prod` Only Configuration  `docker/php/php-prod.ini`[🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/php/prod-php.ini) 
-2. PHP `dev` Only Configuration  `docker/php/php-dev.ini`[🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/php/dev-php.ini) 
+1. PHP `base` Configuration that are common in all environments in `docker/php/base-php.ini`[🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/php/base-php.ini)
+1. PHP `prod` Only Configuration  `docker/php/php-prod.ini`[🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/php/prod-php.ini)
+2. PHP `dev` Only Configuration  `docker/php/php-dev.ini`[🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/php/dev-php.ini)
 
 ### PHP FPM Configuration
 1. PHP FPM Configuration  `docker/fpm/*.conf` [🔗](https://github.com/sherifabdlnaby/kubephp/blob/master/docker/fpm)
@@ -164,18 +199,18 @@ However, in an environment where CI/CD pipelines will build the image, they will
 In `docker/` directory there is `post-build-*` and `pre-run-*` scripts that are used **to extend the image** and add extra behavior.
 
 1. `post-build` command runs at the end of Image build.
-   
+
     Run as the last step during the image build. Are Often framework specific commands that generate optimized builds, generate assets, etc.
-   
+
 2. `pre-run` command runs **in runtime** before running the container main command
-   
+
     Runs before the container's CMD, but after the composer's post-install and post-autload-dump. Used for commands that needs to run at runtime before the application is started. Often are scripts that depends on other services or runtime parameters.
 
 3. `*-base` scripts run on both `production` and `development` images.
 --------
 
 # Misc Notes
-- Your application [should log app logs to stdout.](https://stackoverflow.com/questions/38499825/symfony-logs-to-stdout-inside-docker-container). Read about [12factor/logs](https://12factor.net/logs) 
+- Your application [should log app logs to stdout.](https://stackoverflow.com/questions/38499825/symfony-logs-to-stdout-inside-docker-container). Read about [12factor/logs](https://12factor.net/logs)
 - By default, `php-fpm` access logs are disabled as they're mirrored on `nginx`, this is so that `php-fpm` image will contain **only** application logs written by PHP.
 - In **production**, Image contains source-code, however, you must sync both `php-fpm` and `nginx` images so that they contain the same build.
 
@@ -188,14 +223,14 @@ In `docker/` directory there is `post-build-*` and `pre-run-*` scripts that are 
     -  In containerized environment, you need to only run one process inside the container. This allows us to better instrument our application for many reasons like separation of health status, metrics, logs, etc.
 
 2. Image Build Fails as it try to connect to DB.
-    
+
     - A typical application in most Frameworks comes with `Doctrine` ORM, Doctrine if not configured with a DB Version, will try to access the DB at php's script initialization (even at the post-install cmd's), and it will fail when it cannot connect to DB. [Make sure you configure doctrine to avoid this extra DB Check connection.](https://symfony.com/doc/current/reference/configuration/doctrine.html#:~:text=The-,server_version,-option%20was%20added)
 
 3. Xdebug not working
 
     - Xdebug is configured to work with Linux, to make it work for Mac/Windows, please change Xdebug config in `/docker/php/dev-xdebug.ini` >> `xdebug.client_host` to `host.docker.internal`.
 
-# License 
+# License
 [MIT License](https://raw.githubusercontent.com/sherifabdlnaby/kubephp/blob/master/LICENSE)
 Copyright (c) 2021 Sherif Abdel-Naby
 
