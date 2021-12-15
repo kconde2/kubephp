@@ -38,7 +38,7 @@ services:
     labels:
       - "traefik.enable=true"
       # URL pour accéder à ce conteneur
-      - "traefik.http.routers.nginx.rule=Host(`api.docker.localhost`)"
+      - "traefik.http.routers.nginx.rule=Host(`api.ot.localhost`)"
       # Activation de TLS
       - "traefik.http.routers.nginx.tls=true"
       # Si le port est différent de 80, utilisez le service suivant:
@@ -47,64 +47,64 @@ services:
       php-fpm:
         condition: service_healthy
 
-  # maildev:
-  #   image: djfarrelly/maildev
-  #   command: bin/maildev --web 80 --smtp 25 --hide-extensions STARTTLS
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.maildev.rule=Host(`mail.localhost`)"
-  #     - "traefik.http.services.maildev.loadbalancer.server.port=80"
-  #     - "traefik.http.routers.maildev.entrypoints=web"
+  maildev:
+    image: djfarrelly/maildev
+    command: bin/maildev --web 80 --smtp 25 --hide-extensions STARTTLS
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mail.tls=true"
+      - "traefik.http.services.mail.loadbalancer.server.port=80"
+      - "traefik.http.routers.mail.rule=Host(`mail.ot.localhost`)"
 
-  # mysql:
-  #   image: mysql:8
-  #   command:
-  #     - "--default-authentication-plugin=mysql_native_password"
-  #     - "--lower_case_table_names=1"
-  #     - "--character-set-server=utf8mb4"
-  #     - "--collation-server=utf8mb4_unicode_ci"
-  #   volumes:
-  #     - database:/var/lib/mysql:rw
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
-  #     MYSQL_DATABASE: ${DATABASE_NAME}
-  #     MYSQL_USER: ${DATABASE_USERNAME}
-  #     MYSQL_PASSWORD: ${DATABASE_PASSWORD}
-  #   healthcheck:
-  #     test:
-  #       - CMD
-  #       - mysqladmin
-  #       - ping
+  mysql:
+    image: mysql:8
+    command:
+      - "--default-authentication-plugin=mysql_native_password"
+      - "--lower_case_table_names=1"
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+    volumes:
+      - database:/var/lib/mysql:rw
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      MYSQL_USER: ${DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
 
-  # phpmyadmin:
-  #   image: phpmyadmin/phpmyadmin
-  #   depends_on:
-  #     - mysql
-  #   expose:
-  #     - 80
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.pma.rule=Host(`pma.localhost`)"
-  #     - "traefik.http.routers.pma.entrypoints=web"
-  #   environment:
-  #     PMA_HOST: mysql
-  #     PMA_ARBITRARY: 1
-  #     PMA_USER: root
-  #     PMA_PASSWORD: ${DATABASE_ROOT_PASSWORD}
-  #     UPLOAD_LIMIT: 300M
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    depends_on:
+      - mysql
+    expose:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pma.tls=true"
+      - "traefik.http.routers.pma.rule=Host(`pma.ot.localhost`)"
+    environment:
+      PMA_HOST: mysql
+      PMA_ARBITRARY: 1
+      PMA_USER: root
+      PMA_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+      UPLOAD_LIMIT: 300M
 
-  # portainer:
-  #   image: portainer/portainer
-  #   restart: unless-stopped
-  #   command: --no-auth -H unix:///var/run/docker.sock
-  #   expose:
-  #     - 9000
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.http.routers.portainer.rule=Host(`portainer.localhost`)"
-  #     - "traefik.http.routers.portainer.entrypoints=web"
+  portainer:
+    image: portainer/portainer
+    restart: unless-stopped
+    command: --no-auth -H unix:///var/run/docker.sock
+    expose:
+      - 9000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.ot.localhost`)"
 
   traefik:
     image: "traefik:v2.5.5"
