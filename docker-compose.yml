@@ -1,7 +1,7 @@
-version: '3.7'
+version: "3.7"
 
 services:
-  app:
+  php-fpm:
     build:
       context: .
       target: app-dev
@@ -15,21 +15,119 @@ services:
       # - in Mac AND Windows, `host.docker.internal` resolve to Docker host IP
       # - in Linux, `172.17.0.1` is the host IP
       XDEBUG_CLIENT_HOST: ${XDEBUG_CLIENT_HOST}
+      DATABASE_CLIENT: ${DATABASE_CLIENT}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
     volumes:
       - ./app:/app
 
-  web:
+  nginx:
     build:
       context: .
       target: web-dev
     restart: unless-stopped
-    ports:
-      - 8080:8080
     environment:
       # The Hostname for the FPM (needs to match the hostname for the `app`)
-      PHP_FPM_HOST: app
+      PHP_FPM_HOST: php-fpm
     volumes:
       - ./app/public:/app/public
+    labels:
+      - "traefik.enable=true"
+      # URL pour accéder à ce conteneur
+      - "traefik.http.routers.nginx.rule=Host(`api.docker.localhost`)"
+      # Activation de TLS
+      - "traefik.http.routers.nginx.tls=true"
+      # Si le port est différent de 80, utilisez le service suivant:
+      - "traefik.http.services.nginx.loadbalancer.server.port=8080"
     depends_on:
-      app:
+      php-fpm:
         condition: service_healthy
+
+  # maildev:
+  #   image: djfarrelly/maildev
+  #   command: bin/maildev --web 80 --smtp 25 --hide-extensions STARTTLS
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.maildev.rule=Host(`mail.localhost`)"
+  #     - "traefik.http.services.maildev.loadbalancer.server.port=80"
+  #     - "traefik.http.routers.maildev.entrypoints=web"
+
+  # mysql:
+  #   image: mysql:8
+  #   command:
+  #     - "--default-authentication-plugin=mysql_native_password"
+  #     - "--lower_case_table_names=1"
+  #     - "--character-set-server=utf8mb4"
+  #     - "--collation-server=utf8mb4_unicode_ci"
+  #   volumes:
+  #     - database:/var/lib/mysql:rw
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+  #     MYSQL_DATABASE: ${DATABASE_NAME}
+  #     MYSQL_USER: ${DATABASE_USERNAME}
+  #     MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+  #   healthcheck:
+  #     test:
+  #       - CMD
+  #       - mysqladmin
+  #       - ping
+
+  # phpmyadmin:
+  #   image: phpmyadmin/phpmyadmin
+  #   depends_on:
+  #     - mysql
+  #   expose:
+  #     - 80
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.pma.rule=Host(`pma.localhost`)"
+  #     - "traefik.http.routers.pma.entrypoints=web"
+  #   environment:
+  #     PMA_HOST: mysql
+  #     PMA_ARBITRARY: 1
+  #     PMA_USER: root
+  #     PMA_PASSWORD: ${DATABASE_ROOT_PASSWORD}
+  #     UPLOAD_LIMIT: 300M
+
+  # portainer:
+  #   image: portainer/portainer
+  #   restart: unless-stopped
+  #   command: --no-auth -H unix:///var/run/docker.sock
+  #   expose:
+  #     - 9000
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.portainer.rule=Host(`portainer.localhost`)"
+  #     - "traefik.http.routers.portainer.entrypoints=web"
+
+  traefik:
+    image: "traefik:v2.5.5"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 80:80
+      - 443:443
+    labels:
+      # Permettre à ce conteneur d'être accessible par traefik
+      # Pour plus d'information, voir : https://docs.traefik.io/providers/docker/#exposedbydefault
+      - "traefik.enable=true"
+      # Utilise la configuration du routeur "traefik" définie dans le fichier de configuration dynamique : ./traefik/config.yml
+      - "traefik.http.routers.traefik=true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # On map la conf statique dans le conteneur
+      - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      # On map la conf dynamique statique dans le conteneur
+      - ./docker/traefik/config.yml:/etc/traefik/config.yml:ro
+      # On map les certificats dans le conteneur
+      - ./docker/traefik/certs:/etc/certs:ro
+
+volumes:
+  database: null
